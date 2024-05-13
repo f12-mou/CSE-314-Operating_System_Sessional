@@ -1,0 +1,3254 @@
+diff --git a/Makefile b/Makefile
+index 39a99d7..bfac8fb 100644
+--- a/Makefile
++++ b/Makefile
+@@ -132,6 +132,10 @@ UPROGS=\
+ 	$U/_grind\
+ 	$U/_wc\
+ 	$U/_zombie\
++	$U/_trace\
++	$U/_history\
++	$U/_shutdown\
++	$U/_exit\
+ 
+ fs.img: mkfs/mkfs README $(UPROGS)
+ 	mkfs/mkfs fs.img README $(UPROGS)
+diff --git a/kernel/defs.h b/kernel/defs.h
+index a3c962b..6b98c00 100644
+--- a/kernel/defs.h
++++ b/kernel/defs.h
+@@ -10,180 +10,184 @@ struct stat;
+ struct superblock;
+ 
+ // bio.c
+-void            binit(void);
+-struct buf*     bread(uint, uint);
+-void            brelse(struct buf*);
+-void            bwrite(struct buf*);
+-void            bpin(struct buf*);
+-void            bunpin(struct buf*);
++void binit(void);
++struct buf *bread(uint, uint);
++void brelse(struct buf *);
++void bwrite(struct buf *);
++void bpin(struct buf *);
++void bunpin(struct buf *);
+ 
+ // console.c
+-void            consoleinit(void);
+-void            consoleintr(int);
+-void            consputc(int);
++void consoleinit(void);
++void consoleintr(int);
++void consputc(int);
+ 
+ // exec.c
+-int             exec(char*, char**);
++int exec(char *, char **);
+ 
+ // file.c
+-struct file*    filealloc(void);
+-void            fileclose(struct file*);
+-struct file*    filedup(struct file*);
+-void            fileinit(void);
+-int             fileread(struct file*, uint64, int n);
+-int             filestat(struct file*, uint64 addr);
+-int             filewrite(struct file*, uint64, int n);
++struct file *filealloc(void);
++void fileclose(struct file *);
++struct file *filedup(struct file *);
++void fileinit(void);
++int fileread(struct file *, uint64, int n);
++int filestat(struct file *, uint64 addr);
++int filewrite(struct file *, uint64, int n);
+ 
+ // fs.c
+-void            fsinit(int);
+-int             dirlink(struct inode*, char*, uint);
+-struct inode*   dirlookup(struct inode*, char*, uint*);
+-struct inode*   ialloc(uint, short);
+-struct inode*   idup(struct inode*);
+-void            iinit();
+-void            ilock(struct inode*);
+-void            iput(struct inode*);
+-void            iunlock(struct inode*);
+-void            iunlockput(struct inode*);
+-void            iupdate(struct inode*);
+-int             namecmp(const char*, const char*);
+-struct inode*   namei(char*);
+-struct inode*   nameiparent(char*, char*);
+-int             readi(struct inode*, int, uint64, uint, uint);
+-void            stati(struct inode*, struct stat*);
+-int             writei(struct inode*, int, uint64, uint, uint);
+-void            itrunc(struct inode*);
++void fsinit(int);
++int dirlink(struct inode *, char *, uint);
++struct inode *dirlookup(struct inode *, char *, uint *);
++struct inode *ialloc(uint, short);
++struct inode *idup(struct inode *);
++void iinit();
++void ilock(struct inode *);
++void iput(struct inode *);
++void iunlock(struct inode *);
++void iunlockput(struct inode *);
++void iupdate(struct inode *);
++int namecmp(const char *, const char *);
++struct inode *namei(char *);
++struct inode *nameiparent(char *, char *);
++int readi(struct inode *, int, uint64, uint, uint);
++void stati(struct inode *, struct stat *);
++int writei(struct inode *, int, uint64, uint, uint);
++void itrunc(struct inode *);
+ 
+ // ramdisk.c
+-void            ramdiskinit(void);
+-void            ramdiskintr(void);
+-void            ramdiskrw(struct buf*);
++void ramdiskinit(void);
++void ramdiskintr(void);
++void ramdiskrw(struct buf *);
+ 
+ // kalloc.c
+-void*           kalloc(void);
+-void            kfree(void *);
+-void            kinit(void);
++void *kalloc(void);
++void kfree(void *);
++void kinit(void);
+ 
+ // log.c
+-void            initlog(int, struct superblock*);
+-void            log_write(struct buf*);
+-void            begin_op(void);
+-void            end_op(void);
++void initlog(int, struct superblock *);
++void log_write(struct buf *);
++void begin_op(void);
++void end_op(void);
+ 
+ // pipe.c
+-int             pipealloc(struct file**, struct file**);
+-void            pipeclose(struct pipe*, int);
+-int             piperead(struct pipe*, uint64, int);
+-int             pipewrite(struct pipe*, uint64, int);
++int pipealloc(struct file **, struct file **);
++void pipeclose(struct pipe *, int);
++int piperead(struct pipe *, uint64, int);
++int pipewrite(struct pipe *, uint64, int);
+ 
+ // printf.c
+-void            printf(char*, ...);
+-void            panic(char*) __attribute__((noreturn));
+-void            printfinit(void);
++void printf(char *, ...);
++void panic(char *) __attribute__((noreturn));
++void printfinit(void);
+ 
+ // proc.c
+-int             cpuid(void);
+-void            exit(int);
+-int             fork(void);
+-int             growproc(int);
+-void            proc_mapstacks(pagetable_t);
+-pagetable_t     proc_pagetable(struct proc *);
+-void            proc_freepagetable(pagetable_t, uint64);
+-int             kill(int);
+-int             killed(struct proc*);
+-void            setkilled(struct proc*);
+-struct cpu*     mycpu(void);
+-struct cpu*     getmycpu(void);
+-struct proc*    myproc();
+-void            procinit(void);
+-void            scheduler(void) __attribute__((noreturn));
+-void            sched(void);
+-void            sleep(void*, struct spinlock*);
+-void            userinit(void);
+-int             wait(uint64);
+-void            wakeup(void*);
+-void            yield(void);
+-int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
+-int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
+-void            procdump(void);
++int cpuid(void);
++void exit(int);
++int fork(void);
++int growproc(int);
++void proc_mapstacks(pagetable_t);
++pagetable_t proc_pagetable(struct proc *);
++void proc_freepagetable(pagetable_t, uint64);
++int kill(int);
++int killed(struct proc *);
++void setkilled(struct proc *);
++struct cpu *mycpu(void);
++struct cpu *getmycpu(void);
++struct proc *myproc();
++void procinit(void);
++void scheduler(void) __attribute__((noreturn));
++void sched(void);
++void sleep(void *, struct spinlock *);
++void userinit(void);
++int wait(uint64);
++void wakeup(void *);
++void yield(void);
++int either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
++int either_copyin(void *dst, int user_src, uint64 src, uint64 len);
++void procdump(void);
+ 
+ // swtch.S
+-void            swtch(struct context*, struct context*);
++void swtch(struct context *, struct context *);
+ 
+ // spinlock.c
+-void            acquire(struct spinlock*);
+-int             holding(struct spinlock*);
+-void            initlock(struct spinlock*, char*);
+-void            release(struct spinlock*);
+-void            push_off(void);
+-void            pop_off(void);
++void acquire(struct spinlock *);
++int holding(struct spinlock *);
++void initlock(struct spinlock *, char *);
++void release(struct spinlock *);
++void push_off(void);
++void pop_off(void);
+ 
+ // sleeplock.c
+-void            acquiresleep(struct sleeplock*);
+-void            releasesleep(struct sleeplock*);
+-int             holdingsleep(struct sleeplock*);
+-void            initsleeplock(struct sleeplock*, char*);
++void acquiresleep(struct sleeplock *);
++void releasesleep(struct sleeplock *);
++int holdingsleep(struct sleeplock *);
++void initsleeplock(struct sleeplock *, char *);
+ 
+ // string.c
+-int             memcmp(const void*, const void*, uint);
+-void*           memmove(void*, const void*, uint);
+-void*           memset(void*, int, uint);
+-char*           safestrcpy(char*, const char*, int);
+-int             strlen(const char*);
+-int             strncmp(const char*, const char*, uint);
+-char*           strncpy(char*, const char*, int);
++int memcmp(const void *, const void *, uint);
++void *memmove(void *, const void *, uint);
++void *memset(void *, int, uint);
++char *safestrcpy(char *, const char *, int);
++int strlen(const char *);
++int strncmp(const char *, const char *, uint);
++char *strncpy(char *, const char *, int);
+ 
+ // syscall.c
+-void            argint(int, int*);
+-int             argstr(int, char*, int);
+-void            argaddr(int, uint64 *);
+-int             fetchstr(uint64, char*, int);
+-int             fetchaddr(uint64, uint64*);
+-void            syscall();
++void argint(int, int *);
++int argstr(int, char *, int);
++void argaddr(int, uint64 *);
++int fetchstr(uint64, char *, int);
++int fetchaddr(uint64, uint64 *);
++void syscall();
++int trace(int);
++int history(int n, uint64 now);
++int shutdown(int);
++void timerhalt(void);
+ 
+ // trap.c
+-extern uint     ticks;
+-void            trapinit(void);
+-void            trapinithart(void);
++extern uint ticks;
++void trapinit(void);
++void trapinithart(void);
+ extern struct spinlock tickslock;
+-void            usertrapret(void);
++void usertrapret(void);
+ 
+ // uart.c
+-void            uartinit(void);
+-void            uartintr(void);
+-void            uartputc(int);
+-void            uartputc_sync(int);
+-int             uartgetc(void);
++void uartinit(void);
++void uartintr(void);
++void uartputc(int);
++void uartputc_sync(int);
++int uartgetc(void);
+ 
+ // vm.c
+-void            kvminit(void);
+-void            kvminithart(void);
+-void            kvmmap(pagetable_t, uint64, uint64, uint64, int);
+-int             mappages(pagetable_t, uint64, uint64, uint64, int);
+-pagetable_t     uvmcreate(void);
+-void            uvmfirst(pagetable_t, uchar *, uint);
+-uint64          uvmalloc(pagetable_t, uint64, uint64, int);
+-uint64          uvmdealloc(pagetable_t, uint64, uint64);
+-int             uvmcopy(pagetable_t, pagetable_t, uint64);
+-void            uvmfree(pagetable_t, uint64);
+-void            uvmunmap(pagetable_t, uint64, uint64, int);
+-void            uvmclear(pagetable_t, uint64);
+-pte_t *         walk(pagetable_t, uint64, int);
+-uint64          walkaddr(pagetable_t, uint64);
+-int             copyout(pagetable_t, uint64, char *, uint64);
+-int             copyin(pagetable_t, char *, uint64, uint64);
+-int             copyinstr(pagetable_t, char *, uint64, uint64);
++void kvminit(void);
++void kvminithart(void);
++void kvmmap(pagetable_t, uint64, uint64, uint64, int);
++int mappages(pagetable_t, uint64, uint64, uint64, int);
++pagetable_t uvmcreate(void);
++void uvmfirst(pagetable_t, uchar *, uint);
++uint64 uvmalloc(pagetable_t, uint64, uint64, int);
++uint64 uvmdealloc(pagetable_t, uint64, uint64);
++int uvmcopy(pagetable_t, pagetable_t, uint64);
++void uvmfree(pagetable_t, uint64);
++void uvmunmap(pagetable_t, uint64, uint64, int);
++void uvmclear(pagetable_t, uint64);
++pte_t *walk(pagetable_t, uint64, int);
++uint64 walkaddr(pagetable_t, uint64);
++int copyout(pagetable_t, uint64, char *, uint64);
++int copyin(pagetable_t, char *, uint64, uint64);
++int copyinstr(pagetable_t, char *, uint64, uint64);
+ 
+ // plic.c
+-void            plicinit(void);
+-void            plicinithart(void);
+-int             plic_claim(void);
+-void            plic_complete(int);
++void plicinit(void);
++void plicinithart(void);
++int plic_claim(void);
++void plic_complete(int);
+ 
+ // virtio_disk.c
+-void            virtio_disk_init(void);
+-void            virtio_disk_rw(struct buf *, int);
+-void            virtio_disk_intr(void);
++void virtio_disk_init(void);
++void virtio_disk_rw(struct buf *, int);
++void virtio_disk_intr(void);
+ 
+ // number of elements in fixed-size array
+-#define NELEM(x) (sizeof(x)/sizeof((x)[0]))
++#define NELEM(x) (sizeof(x) / sizeof((x)[0]))
+diff --git a/kernel/exec.c b/kernel/exec.c
+index e18bbb6..27e1659 100644
+--- a/kernel/exec.c
++++ b/kernel/exec.c
+@@ -11,16 +11,15 @@ static int loadseg(pde_t *, uint64, struct inode *, uint, uint);
+ 
+ int flags2perm(int flags)
+ {
+-    int perm = 0;
+-    if(flags & 0x1)
+-      perm = PTE_X;
+-    if(flags & 0x2)
+-      perm |= PTE_W;
+-    return perm;
++  int perm = 0;
++  if (flags & 0x1)
++    perm = PTE_X;
++  if (flags & 0x2)
++    perm |= PTE_W;
++  return perm;
+ }
+ 
+-int
+-exec(char *path, char **argv)
++int exec(char *path, char **argv)
+ {
+   char *s, *last;
+   int i, off;
+@@ -33,39 +32,41 @@ exec(char *path, char **argv)
+ 
+   begin_op();
+ 
+-  if((ip = namei(path)) == 0){
++  if ((ip = namei(path)) == 0)
++  {
+     end_op();
+     return -1;
+   }
+   ilock(ip);
+ 
+   // Check ELF header
+-  if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
++  if (readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
+     goto bad;
+ 
+-  if(elf.magic != ELF_MAGIC)
++  if (elf.magic != ELF_MAGIC)
+     goto bad;
+ 
+-  if((pagetable = proc_pagetable(p)) == 0)
++  if ((pagetable = proc_pagetable(p)) == 0)
+     goto bad;
+ 
+   // Load program into memory.
+-  for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
+-    if(readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
++  for (i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph))
++  {
++    if (readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
+       goto bad;
+-    if(ph.type != ELF_PROG_LOAD)
++    if (ph.type != ELF_PROG_LOAD)
+       continue;
+-    if(ph.memsz < ph.filesz)
++    if (ph.memsz < ph.filesz)
+       goto bad;
+-    if(ph.vaddr + ph.memsz < ph.vaddr)
++    if (ph.vaddr + ph.memsz < ph.vaddr)
+       goto bad;
+-    if(ph.vaddr % PGSIZE != 0)
++    if (ph.vaddr % PGSIZE != 0)
+       goto bad;
+     uint64 sz1;
+-    if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0)
++    if ((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0)
+       goto bad;
+     sz = sz1;
+-    if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
++    if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
+       goto bad;
+   }
+   iunlockput(ip);
+@@ -80,33 +81,34 @@ exec(char *path, char **argv)
+   // Use the second as the user stack.
+   sz = PGROUNDUP(sz);
+   uint64 sz1;
+-  if((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE, PTE_W)) == 0)
++  if ((sz1 = uvmalloc(pagetable, sz, sz + 2 * PGSIZE, PTE_W)) == 0)
+     goto bad;
+   sz = sz1;
+-  uvmclear(pagetable, sz-2*PGSIZE);
++  uvmclear(pagetable, sz - 2 * PGSIZE);
+   sp = sz;
+   stackbase = sp - PGSIZE;
+ 
+   // Push argument strings, prepare rest of stack in ustack.
+-  for(argc = 0; argv[argc]; argc++) {
+-    if(argc >= MAXARG)
++  for (argc = 0; argv[argc]; argc++)
++  {
++    if (argc >= MAXARG)
+       goto bad;
+     sp -= strlen(argv[argc]) + 1;
+     sp -= sp % 16; // riscv sp must be 16-byte aligned
+-    if(sp < stackbase)
++    if (sp < stackbase)
+       goto bad;
+-    if(copyout(pagetable, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
++    if (copyout(pagetable, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
+       goto bad;
+     ustack[argc] = sp;
+   }
+   ustack[argc] = 0;
+ 
+   // push the array of argv[] pointers.
+-  sp -= (argc+1) * sizeof(uint64);
++  sp -= (argc + 1) * sizeof(uint64);
+   sp -= sp % 16;
+-  if(sp < stackbase)
++  if (sp < stackbase)
+     goto bad;
+-  if(copyout(pagetable, sp, (char *)ustack, (argc+1)*sizeof(uint64)) < 0)
++  if (copyout(pagetable, sp, (char *)ustack, (argc + 1) * sizeof(uint64)) < 0)
+     goto bad;
+ 
+   // arguments to user main(argc, argv)
+@@ -115,25 +117,26 @@ exec(char *path, char **argv)
+   p->trapframe->a1 = sp;
+ 
+   // Save program name for debugging.
+-  for(last=s=path; *s; s++)
+-    if(*s == '/')
+-      last = s+1;
++  for (last = s = path; *s; s++)
++    if (*s == '/')
++      last = s + 1;
+   safestrcpy(p->name, last, sizeof(p->name));
+-    
++
+   // Commit to the user image.
+   oldpagetable = p->pagetable;
+   p->pagetable = pagetable;
+   p->sz = sz;
+-  p->trapframe->epc = elf.entry;  // initial program counter = main
+-  p->trapframe->sp = sp; // initial stack pointer
++  p->trapframe->epc = elf.entry; // initial program counter = main
++  p->trapframe->sp = sp;         // initial stack pointer
+   proc_freepagetable(oldpagetable, oldsz);
+ 
+   return argc; // this ends up in a0, the first argument to main(argc, argv)
+ 
+- bad:
+-  if(pagetable)
++bad:
++  if (pagetable)
+     proc_freepagetable(pagetable, sz);
+-  if(ip){
++  if (ip)
++  {
+     iunlockput(ip);
+     end_op();
+   }
+@@ -150,17 +153,18 @@ loadseg(pagetable_t pagetable, uint64 va, struct inode *ip, uint offset, uint sz
+   uint i, n;
+   uint64 pa;
+ 
+-  for(i = 0; i < sz; i += PGSIZE){
++  for (i = 0; i < sz; i += PGSIZE)
++  {
+     pa = walkaddr(pagetable, va + i);
+-    if(pa == 0)
++    if (pa == 0)
+       panic("loadseg: address should exist");
+-    if(sz - i < PGSIZE)
++    if (sz - i < PGSIZE)
+       n = sz - i;
+     else
+       n = PGSIZE;
+-    if(readi(ip, 0, (uint64)pa, offset+i, n) != n)
++    if (readi(ip, 0, (uint64)pa, offset + i, n) != n)
+       return -1;
+   }
+-  
++
+   return 0;
+ }
+diff --git a/kernel/kernelvec.S b/kernel/kernelvec.S
+index fb31b32..26ecf9e 100644
+--- a/kernel/kernelvec.S
++++ b/kernel/kernelvec.S
+@@ -97,12 +97,19 @@ timervec:
+         # scratch[0,8,16] : register save area.
+         # scratch[24] : address of CLINT's MTIMECMP register.
+         # scratch[32] : desired interval between interrupts.
++        # scratch[40] : halt flag set by timerhalt.
+         
+         csrrw a0, mscratch, a0
+         sd a1, 0(a0)
+         sd a2, 8(a0)
+         sd a3, 16(a0)
+ 
++
++        # halt if timerhalt has set halt flag to 1
++        ld a1, 40(a0) # 32 porjonto chilo
++        bne a1, zero, halt
++
++
+         # schedule the next timer interrupt
+         # by adding interval to mtimecmp.
+         ld a1, 24(a0) # CLINT_MTIMECMP(hart)
+@@ -122,3 +129,13 @@ timervec:
+         csrrw a0, mscratch, a0
+ 
+         mret
++
++halt:
++        # based on qemu's hw/riscv/virt.c:
++        # qemu stops if FINISHER_PASS(=0x5555) is written at address *VIRT_TEST(=0x100000L)
++        lui a1, 0x100
++        lui a2, 0x5
++        addi a2, a2, 0x555
++        sw a2, 0(a1)
++spin:
++        j spin
+diff --git a/kernel/proc.c b/kernel/proc.c
+index 959b778..1b4c377 100644
+--- a/kernel/proc.c
++++ b/kernel/proc.c
+@@ -7,6 +7,7 @@
+ #include "defs.h"
+ 
+ struct cpu cpus[NCPU];
++struct syscall_stat syscallArr[25];
+ 
+ struct proc proc[NPROC];
+ 
+@@ -26,43 +27,67 @@ extern char trampoline[]; // trampoline.S
+ // must be acquired before any p->lock.
+ struct spinlock wait_lock;
+ 
++// my code
++
+ // Allocate a page for each process's kernel stack.
+ // Map it high in memory, followed by an invalid
+ // guard page.
+-void
+-proc_mapstacks(pagetable_t kpgtbl)
++void proc_mapstacks(pagetable_t kpgtbl)
+ {
+   struct proc *p;
+-  
+-  for(p = proc; p < &proc[NPROC]; p++) {
++
++  for (p = proc; p < &proc[NPROC]; p++)
++  {
+     char *pa = kalloc();
+-    if(pa == 0)
++    if (pa == 0)
+       panic("kalloc");
+-    uint64 va = KSTACK((int) (p - proc));
++    uint64 va = KSTACK((int)(p - proc));
+     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+   }
+ }
+ 
+ // initialize the proc table.
+-void
+-procinit(void)
++void procinit(void)
+ {
+   struct proc *p;
+-  
++  safestrcpy(syscallArr[0].syscall_name, "fork", 5);
++  safestrcpy(syscallArr[1].syscall_name, "exit", 5);
++  safestrcpy(syscallArr[2].syscall_name, "wait", 5);
++  safestrcpy(syscallArr[3].syscall_name, "pipe", 5);
++  safestrcpy(syscallArr[4].syscall_name, "read", 5);
++  safestrcpy(syscallArr[5].syscall_name, "kill", 5);
++  safestrcpy(syscallArr[6].syscall_name, "exec", 5);
++  safestrcpy(syscallArr[7].syscall_name, "fstat", 6);
++  safestrcpy(syscallArr[8].syscall_name, "chdir", 6);
++  safestrcpy(syscallArr[9].syscall_name, "dup", 4);
++  safestrcpy(syscallArr[10].syscall_name, "getpid", 7);
++  safestrcpy(syscallArr[11].syscall_name, "sbrk", 5);
++  safestrcpy(syscallArr[12].syscall_name, "sleep", 6);
++  safestrcpy(syscallArr[13].syscall_name, "uptime", 7);
++  safestrcpy(syscallArr[14].syscall_name, "open", 5);
++  safestrcpy(syscallArr[15].syscall_name, "write", 6);
++  safestrcpy(syscallArr[16].syscall_name, "mknod", 6);
++  safestrcpy(syscallArr[17].syscall_name, "unlink", 7);
++  safestrcpy(syscallArr[18].syscall_name, "link", 5);
++  safestrcpy(syscallArr[19].syscall_name, "mkdir", 6);
++  safestrcpy(syscallArr[20].syscall_name, "close", 6);
++  safestrcpy(syscallArr[21].syscall_name, "trace", 6);
++  safestrcpy(syscallArr[22].syscall_name, "history", 8);
++
+   initlock(&pid_lock, "nextpid");
+   initlock(&wait_lock, "wait_lock");
+-  for(p = proc; p < &proc[NPROC]; p++) {
+-      initlock(&p->lock, "proc");
+-      p->state = UNUSED;
+-      p->kstack = KSTACK((int) (p - proc));
++  for (p = proc; p < &proc[NPROC]; p++)
++  {
++    initlock(&p->lock, "proc");
++    p->state = UNUSED;
++    p->kstack = KSTACK((int)(p - proc));
+   }
+ }
+ 
+ // Must be called with interrupts disabled,
+ // to prevent race with process being moved
+ // to a different CPU.
+-int
+-cpuid()
++int cpuid()
+ {
+   int id = r_tp();
+   return id;
+@@ -70,7 +95,7 @@ cpuid()
+ 
+ // Return this CPU's cpu struct.
+ // Interrupts must be disabled.
+-struct cpu*
++struct cpu *
+ mycpu(void)
+ {
+   int id = cpuid();
+@@ -79,7 +104,7 @@ mycpu(void)
+ }
+ 
+ // Return the current struct proc *, or zero if none.
+-struct proc*
++struct proc *
+ myproc(void)
+ {
+   push_off();
+@@ -89,11 +114,10 @@ myproc(void)
+   return p;
+ }
+ 
+-int
+-allocpid()
++int allocpid()
+ {
+   int pid;
+-  
++
+   acquire(&pid_lock);
+   pid = nextpid;
+   nextpid = nextpid + 1;
+@@ -106,16 +130,20 @@ allocpid()
+ // If found, initialize state required to run in the kernel,
+ // and return with p->lock held.
+ // If there are no free procs, or a memory allocation fails, return 0.
+-static struct proc*
++static struct proc *
+ allocproc(void)
+ {
+   struct proc *p;
+ 
+-  for(p = proc; p < &proc[NPROC]; p++) {
++  for (p = proc; p < &proc[NPROC]; p++)
++  {
+     acquire(&p->lock);
+-    if(p->state == UNUSED) {
++    if (p->state == UNUSED)
++    {
+       goto found;
+-    } else {
++    }
++    else
++    {
+       release(&p->lock);
+     }
+   }
+@@ -123,10 +151,12 @@ allocproc(void)
+ 
+ found:
+   p->pid = allocpid();
++  p->desired_sys_call = 0;
+   p->state = USED;
+ 
+   // Allocate a trapframe page.
+-  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
++  if ((p->trapframe = (struct trapframe *)kalloc()) == 0)
++  {
+     freeproc(p);
+     release(&p->lock);
+     return 0;
+@@ -134,7 +164,8 @@ found:
+ 
+   // An empty user page table.
+   p->pagetable = proc_pagetable(p);
+-  if(p->pagetable == 0){
++  if (p->pagetable == 0)
++  {
+     freeproc(p);
+     release(&p->lock);
+     return 0;
+@@ -155,10 +186,10 @@ found:
+ static void
+ freeproc(struct proc *p)
+ {
+-  if(p->trapframe)
+-    kfree((void*)p->trapframe);
++  if (p->trapframe)
++    kfree((void *)p->trapframe);
+   p->trapframe = 0;
+-  if(p->pagetable)
++  if (p->pagetable)
+     proc_freepagetable(p->pagetable, p->sz);
+   p->pagetable = 0;
+   p->sz = 0;
+@@ -180,23 +211,25 @@ proc_pagetable(struct proc *p)
+ 
+   // An empty page table.
+   pagetable = uvmcreate();
+-  if(pagetable == 0)
++  if (pagetable == 0)
+     return 0;
+ 
+   // map the trampoline code (for system call return)
+   // at the highest user virtual address.
+   // only the supervisor uses it, on the way
+   // to/from user space, so not PTE_U.
+-  if(mappages(pagetable, TRAMPOLINE, PGSIZE,
+-              (uint64)trampoline, PTE_R | PTE_X) < 0){
++  if (mappages(pagetable, TRAMPOLINE, PGSIZE,
++               (uint64)trampoline, PTE_R | PTE_X) < 0)
++  {
+     uvmfree(pagetable, 0);
+     return 0;
+   }
+ 
+   // map the trapframe page just below the trampoline page, for
+   // trampoline.S.
+-  if(mappages(pagetable, TRAPFRAME, PGSIZE,
+-              (uint64)(p->trapframe), PTE_R | PTE_W) < 0){
++  if (mappages(pagetable, TRAPFRAME, PGSIZE,
++               (uint64)(p->trapframe), PTE_R | PTE_W) < 0)
++  {
+     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+     uvmfree(pagetable, 0);
+     return 0;
+@@ -207,8 +240,7 @@ proc_pagetable(struct proc *p)
+ 
+ // Free a process's page table, and free the
+ // physical memory it refers to.
+-void
+-proc_freepagetable(pagetable_t pagetable, uint64 sz)
++void proc_freepagetable(pagetable_t pagetable, uint64 sz)
+ {
+   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+@@ -219,32 +251,33 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
+ // assembled from ../user/initcode.S
+ // od -t xC ../user/initcode
+ uchar initcode[] = {
+-  0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02,
+-  0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x35, 0x02,
+-  0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00,
+-  0x93, 0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00,
+-  0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e, 0x69,
+-  0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00,
+-  0x00, 0x00, 0x00, 0x00
+-};
++    0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02,
++    0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x35, 0x02,
++    0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00,
++    0x93, 0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00,
++    0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e, 0x69,
++    0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00};
+ 
+ // Set up first user process.
+-void
+-userinit(void)
++void userinit(void)
+ {
++
++  // struct syscall_stat syscallArr[5].syscall_name="hello";
++
+   struct proc *p;
+ 
+   p = allocproc();
+   initproc = p;
+-  
++
+   // allocate one user page and copy initcode's instructions
+   // and data into it.
+   uvmfirst(p->pagetable, initcode, sizeof(initcode));
+   p->sz = PGSIZE;
+ 
+   // prepare for the very first "return" from kernel to user.
+-  p->trapframe->epc = 0;      // user program counter
+-  p->trapframe->sp = PGSIZE;  // user stack pointer
++  p->trapframe->epc = 0;     // user program counter
++  p->trapframe->sp = PGSIZE; // user stack pointer
+ 
+   safestrcpy(p->name, "initcode", sizeof(p->name));
+   p->cwd = namei("/");
+@@ -256,18 +289,21 @@ userinit(void)
+ 
+ // Grow or shrink user memory by n bytes.
+ // Return 0 on success, -1 on failure.
+-int
+-growproc(int n)
++int growproc(int n)
+ {
+   uint64 sz;
+   struct proc *p = myproc();
+ 
+   sz = p->sz;
+-  if(n > 0){
+-    if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
++  if (n > 0)
++  {
++    if ((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0)
++    {
+       return -1;
+     }
+-  } else if(n < 0){
++  }
++  else if (n < 0)
++  {
+     sz = uvmdealloc(p->pagetable, sz, sz + n);
+   }
+   p->sz = sz;
+@@ -276,20 +312,21 @@ growproc(int n)
+ 
+ // Create a new process, copying the parent.
+ // Sets up child kernel stack to return as if from fork() system call.
+-int
+-fork(void)
++int fork(void)
+ {
+   int i, pid;
+   struct proc *np;
+   struct proc *p = myproc();
+ 
+   // Allocate process.
+-  if((np = allocproc()) == 0){
++  if ((np = allocproc()) == 0)
++  {
+     return -1;
+   }
+ 
+   // Copy user memory from parent to child.
+-  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
++  if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0)
++  {
+     freeproc(np);
+     release(&np->lock);
+     return -1;
+@@ -303,8 +340,8 @@ fork(void)
+   np->trapframe->a0 = 0;
+ 
+   // increment reference counts on open file descriptors.
+-  for(i = 0; i < NOFILE; i++)
+-    if(p->ofile[i])
++  for (i = 0; i < NOFILE; i++)
++    if (p->ofile[i])
+       np->ofile[i] = filedup(p->ofile[i]);
+   np->cwd = idup(p->cwd);
+ 
+@@ -327,13 +364,14 @@ fork(void)
+ 
+ // Pass p's abandoned children to init.
+ // Caller must hold wait_lock.
+-void
+-reparent(struct proc *p)
++void reparent(struct proc *p)
+ {
+   struct proc *pp;
+ 
+-  for(pp = proc; pp < &proc[NPROC]; pp++){
+-    if(pp->parent == p){
++  for (pp = proc; pp < &proc[NPROC]; pp++)
++  {
++    if (pp->parent == p)
++    {
+       pp->parent = initproc;
+       wakeup(initproc);
+     }
+@@ -343,17 +381,18 @@ reparent(struct proc *p)
+ // Exit the current process.  Does not return.
+ // An exited process remains in the zombie state
+ // until its parent calls wait().
+-void
+-exit(int status)
++void exit(int status)
+ {
+   struct proc *p = myproc();
+ 
+-  if(p == initproc)
++  if (p == initproc)
+     panic("init exiting");
+ 
+   // Close all open files.
+-  for(int fd = 0; fd < NOFILE; fd++){
+-    if(p->ofile[fd]){
++  for (int fd = 0; fd < NOFILE; fd++)
++  {
++    if (p->ofile[fd])
++    {
+       struct file *f = p->ofile[fd];
+       fileclose(f);
+       p->ofile[fd] = 0;
+@@ -372,7 +411,7 @@ exit(int status)
+ 
+   // Parent might be sleeping in wait().
+   wakeup(p->parent);
+-  
++
+   acquire(&p->lock);
+ 
+   p->xstate = status;
+@@ -387,8 +426,7 @@ exit(int status)
+ 
+ // Wait for a child process to exit and return its pid.
+ // Return -1 if this process has no children.
+-int
+-wait(uint64 addr)
++int wait(uint64 addr)
+ {
+   struct proc *pp;
+   int havekids, pid;
+@@ -396,20 +434,25 @@ wait(uint64 addr)
+ 
+   acquire(&wait_lock);
+ 
+-  for(;;){
++  for (;;)
++  {
+     // Scan through table looking for exited children.
+     havekids = 0;
+-    for(pp = proc; pp < &proc[NPROC]; pp++){
+-      if(pp->parent == p){
++    for (pp = proc; pp < &proc[NPROC]; pp++)
++    {
++      if (pp->parent == p)
++      {
+         // make sure the child isn't still in exit() or swtch().
+         acquire(&pp->lock);
+ 
+         havekids = 1;
+-        if(pp->state == ZOMBIE){
++        if (pp->state == ZOMBIE)
++        {
+           // Found one.
+           pid = pp->pid;
+-          if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
+-                                  sizeof(pp->xstate)) < 0) {
++          if (addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
++                                   sizeof(pp->xstate)) < 0)
++          {
+             release(&pp->lock);
+             release(&wait_lock);
+             return -1;
+@@ -424,13 +467,14 @@ wait(uint64 addr)
+     }
+ 
+     // No point waiting if we don't have any children.
+-    if(!havekids || killed(p)){
++    if (!havekids || killed(p))
++    {
+       release(&wait_lock);
+       return -1;
+     }
+-    
++
+     // Wait for a child to exit.
+-    sleep(p, &wait_lock);  //DOC: wait-sleep
++    sleep(p, &wait_lock); // DOC: wait-sleep
+   }
+ }
+ 
+@@ -441,20 +485,22 @@ wait(uint64 addr)
+ //  - swtch to start running that process.
+ //  - eventually that process transfers control
+ //    via swtch back to the scheduler.
+-void
+-scheduler(void)
++void scheduler(void)
+ {
+   struct proc *p;
+   struct cpu *c = mycpu();
+-  
++
+   c->proc = 0;
+-  for(;;){
++  for (;;)
++  {
+     // Avoid deadlock by ensuring that devices can interrupt.
+     intr_on();
+ 
+-    for(p = proc; p < &proc[NPROC]; p++) {
++    for (p = proc; p < &proc[NPROC]; p++)
++    {
+       acquire(&p->lock);
+-      if(p->state == RUNNABLE) {
++      if (p->state == RUNNABLE)
++      {
+         // Switch to chosen process.  It is the process's job
+         // to release its lock and then reacquire it
+         // before jumping back to us.
+@@ -478,19 +524,18 @@ scheduler(void)
+ // be proc->intena and proc->noff, but that would
+ // break in the few places where a lock is held but
+ // there's no process.
+-void
+-sched(void)
++void sched(void)
+ {
+   int intena;
+   struct proc *p = myproc();
+ 
+-  if(!holding(&p->lock))
++  if (!holding(&p->lock))
+     panic("sched p->lock");
+-  if(mycpu()->noff != 1)
++  if (mycpu()->noff != 1)
+     panic("sched locks");
+-  if(p->state == RUNNING)
++  if (p->state == RUNNING)
+     panic("sched running");
+-  if(intr_get())
++  if (intr_get())
+     panic("sched interruptible");
+ 
+   intena = mycpu()->intena;
+@@ -499,8 +544,7 @@ sched(void)
+ }
+ 
+ // Give up the CPU for one scheduling round.
+-void
+-yield(void)
++void yield(void)
+ {
+   struct proc *p = myproc();
+   acquire(&p->lock);
+@@ -511,15 +555,15 @@ yield(void)
+ 
+ // A fork child's very first scheduling by scheduler()
+ // will swtch to forkret.
+-void
+-forkret(void)
++void forkret(void)
+ {
+   static int first = 1;
+ 
+   // Still holding p->lock from scheduler.
+   release(&myproc()->lock);
+ 
+-  if (first) {
++  if (first)
++  {
+     // File system initialization must be run in the context of a
+     // regular process (e.g., because it calls sleep), and thus cannot
+     // be run from main().
+@@ -532,11 +576,10 @@ forkret(void)
+ 
+ // Atomically release lock and sleep on chan.
+ // Reacquires lock when awakened.
+-void
+-sleep(void *chan, struct spinlock *lk)
++void sleep(void *chan, struct spinlock *lk)
+ {
+   struct proc *p = myproc();
+-  
++
+   // Must acquire p->lock in order to
+   // change p->state and then call sched.
+   // Once we hold p->lock, we can be
+@@ -544,7 +587,7 @@ sleep(void *chan, struct spinlock *lk)
+   // (wakeup locks p->lock),
+   // so it's okay to release lk.
+ 
+-  acquire(&p->lock);  //DOC: sleeplock1
++  acquire(&p->lock); // DOC: sleeplock1
+   release(lk);
+ 
+   // Go to sleep.
+@@ -563,15 +606,17 @@ sleep(void *chan, struct spinlock *lk)
+ 
+ // Wake up all processes sleeping on chan.
+ // Must be called without any p->lock.
+-void
+-wakeup(void *chan)
++void wakeup(void *chan)
+ {
+   struct proc *p;
+ 
+-  for(p = proc; p < &proc[NPROC]; p++) {
+-    if(p != myproc()){
++  for (p = proc; p < &proc[NPROC]; p++)
++  {
++    if (p != myproc())
++    {
+       acquire(&p->lock);
+-      if(p->state == SLEEPING && p->chan == chan) {
++      if (p->state == SLEEPING && p->chan == chan)
++      {
+         p->state = RUNNABLE;
+       }
+       release(&p->lock);
+@@ -582,16 +627,18 @@ wakeup(void *chan)
+ // Kill the process with the given pid.
+ // The victim won't exit until it tries to return
+ // to user space (see usertrap() in trap.c).
+-int
+-kill(int pid)
++int kill(int pid)
+ {
+   struct proc *p;
+ 
+-  for(p = proc; p < &proc[NPROC]; p++){
++  for (p = proc; p < &proc[NPROC]; p++)
++  {
+     acquire(&p->lock);
+-    if(p->pid == pid){
++    if (p->pid == pid)
++    {
+       p->killed = 1;
+-      if(p->state == SLEEPING){
++      if (p->state == SLEEPING)
++      {
+         // Wake process from sleep().
+         p->state = RUNNABLE;
+       }
+@@ -603,19 +650,17 @@ kill(int pid)
+   return -1;
+ }
+ 
+-void
+-setkilled(struct proc *p)
++void setkilled(struct proc *p)
+ {
+   acquire(&p->lock);
+   p->killed = 1;
+   release(&p->lock);
+ }
+ 
+-int
+-killed(struct proc *p)
++int killed(struct proc *p)
+ {
+   int k;
+-  
++
+   acquire(&p->lock);
+   k = p->killed;
+   release(&p->lock);
+@@ -625,13 +670,15 @@ killed(struct proc *p)
+ // Copy to either a user address, or kernel address,
+ // depending on usr_dst.
+ // Returns 0 on success, -1 on error.
+-int
+-either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
++int either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
+ {
+   struct proc *p = myproc();
+-  if(user_dst){
++  if (user_dst)
++  {
+     return copyout(p->pagetable, dst, src, len);
+-  } else {
++  }
++  else
++  {
+     memmove((char *)dst, src, len);
+     return 0;
+   }
+@@ -640,14 +687,16 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
+ // Copy from either a user address, or kernel address,
+ // depending on usr_src.
+ // Returns 0 on success, -1 on error.
+-int
+-either_copyin(void *dst, int user_src, uint64 src, uint64 len)
++int either_copyin(void *dst, int user_src, uint64 src, uint64 len)
+ {
+   struct proc *p = myproc();
+-  if(user_src){
++  if (user_src)
++  {
+     return copyin(p->pagetable, dst, src, len);
+-  } else {
+-    memmove(dst, (char*)src, len);
++  }
++  else
++  {
++    memmove(dst, (char *)src, len);
+     return 0;
+   }
+ }
+@@ -655,25 +704,24 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
+ // Print a process listing to console.  For debugging.
+ // Runs when user types ^P on console.
+ // No lock to avoid wedging a stuck machine further.
+-void
+-procdump(void)
++void procdump(void)
+ {
+   static char *states[] = {
+-  [UNUSED]    "unused",
+-  [USED]      "used",
+-  [SLEEPING]  "sleep ",
+-  [RUNNABLE]  "runble",
+-  [RUNNING]   "run   ",
+-  [ZOMBIE]    "zombie"
+-  };
++      [UNUSED] "unused",
++      [USED] "used",
++      [SLEEPING] "sleep ",
++      [RUNNABLE] "runble",
++      [RUNNING] "run   ",
++      [ZOMBIE] "zombie"};
+   struct proc *p;
+   char *state;
+ 
+   printf("\n");
+-  for(p = proc; p < &proc[NPROC]; p++){
+-    if(p->state == UNUSED)
++  for (p = proc; p < &proc[NPROC]; p++)
++  {
++    if (p->state == UNUSED)
+       continue;
+-    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
++    if (p->state >= 0 && p->state < NELEM(states) && states[p->state])
+       state = states[p->state];
+     else
+       state = "???";
+@@ -681,3 +729,19 @@ procdump(void)
+     printf("\n");
+   }
+ }
++
++// here added for offline
++int trace(int n)
++{
++  struct proc *p = myproc();
++  p->desired_sys_call = n;
++  return 1;
++}
++
++int history(int n, uint64 now)
++{
++  struct proc *p = myproc();
++  struct syscall_stat now2 = syscallArr[n - 1];
++  copyout(p->pagetable, now, (char *)&now2, sizeof(now2));
++  return 0; // normal termination
++}
+diff --git a/kernel/proc.h b/kernel/proc.h
+index d021857..f7381b8 100644
+--- a/kernel/proc.h
++++ b/kernel/proc.h
+@@ -1,5 +1,6 @@
+ // Saved registers for kernel context switches.
+-struct context {
++struct context
++{
+   uint64 ra;
+   uint64 sp;
+ 
+@@ -19,11 +20,12 @@ struct context {
+ };
+ 
+ // Per-CPU state.
+-struct cpu {
+-  struct proc *proc;          // The process running on this cpu, or null.
+-  struct context context;     // swtch() here to enter scheduler().
+-  int noff;                   // Depth of push_off() nesting.
+-  int intena;                 // Were interrupts enabled before push_off()?
++struct cpu
++{
++  struct proc *proc;      // The process running on this cpu, or null.
++  struct context context; // swtch() here to enter scheduler().
++  int noff;               // Depth of push_off() nesting.
++  int intena;             // Were interrupts enabled before push_off()?
+ };
+ 
+ extern struct cpu cpus[NCPU];
+@@ -40,7 +42,8 @@ extern struct cpu cpus[NCPU];
+ // the trapframe includes callee-saved user registers like s0-s11 because the
+ // return-to-user path via usertrapret() doesn't return through
+ // the entire kernel call stack.
+-struct trapframe {
++struct trapframe
++{
+   /*   0 */ uint64 kernel_satp;   // kernel page table
+   /*   8 */ uint64 kernel_sp;     // top of process's kernel stack
+   /*  16 */ uint64 kernel_trap;   // usertrap()
+@@ -79,21 +82,30 @@ struct trapframe {
+   /* 280 */ uint64 t6;
+ };
+ 
+-enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
++enum procstate
++{
++  UNUSED,
++  USED,
++  SLEEPING,
++  RUNNABLE,
++  RUNNING,
++  ZOMBIE
++};
+ 
+ // Per-process state
+-struct proc {
++struct proc
++{
+   struct spinlock lock;
+ 
+   // p->lock must be held when using these:
+-  enum procstate state;        // Process state
+-  void *chan;                  // If non-zero, sleeping on chan
+-  int killed;                  // If non-zero, have been killed
+-  int xstate;                  // Exit status to be returned to parent's wait
+-  int pid;                     // Process ID
++  enum procstate state; // Process state
++  void *chan;           // If non-zero, sleeping on chan
++  int killed;           // If non-zero, have been killed
++  int xstate;           // Exit status to be returned to parent's wait
++  int pid;              // Process ID
+ 
+   // wait_lock must be held when using this:
+-  struct proc *parent;         // Parent process
++  struct proc *parent; // Parent process
+ 
+   // these are private to the process, so p->lock need not be held.
+   uint64 kstack;               // Virtual address of kernel stack
+@@ -104,4 +116,14 @@ struct proc {
+   struct file *ofile[NOFILE];  // Open files
+   struct inode *cwd;           // Current directory
+   char name[16];               // Process name (debugging)
++  int desired_sys_call;
++};
++
++struct syscall_stat
++{
++  char syscall_name[16];
++  int count;
++  int accum_time;
++  struct spinlock lock;
+ };
++extern struct syscall_stat syscallArr[25];
+diff --git a/kernel/riscv.h b/kernel/riscv.h
+index 20a01db..bf9b6e3 100644
+--- a/kernel/riscv.h
++++ b/kernel/riscv.h
+@@ -5,7 +5,8 @@ static inline uint64
+ r_mhartid()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, mhartid" : "=r" (x) );
++  asm volatile("csrr %0, mhartid"
++               : "=r"(x));
+   return x;
+ }
+ 
+@@ -15,29 +16,34 @@ r_mhartid()
+ #define MSTATUS_MPP_M (3L << 11)
+ #define MSTATUS_MPP_S (1L << 11)
+ #define MSTATUS_MPP_U (0L << 11)
+-#define MSTATUS_MIE (1L << 3)    // machine-mode interrupt enable.
++#define MSTATUS_MIE (1L << 3) // machine-mode interrupt enable.
+ 
+ static inline uint64
+ r_mstatus()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, mstatus" : "=r" (x) );
++  asm volatile("csrr %0, mstatus"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_mstatus(uint64 x)
+ {
+-  asm volatile("csrw mstatus, %0" : : "r" (x));
++  asm volatile("csrw mstatus, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // machine exception program counter, holds the
+ // instruction address to which a return from
+ // exception will go.
+-static inline void 
++static inline void
+ w_mepc(uint64 x)
+ {
+-  asm volatile("csrw mepc, %0" : : "r" (x));
++  asm volatile("csrw mepc, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // Supervisor Status Register, sstatus
+@@ -52,14 +58,17 @@ static inline uint64
+ r_sstatus()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, sstatus" : "=r" (x) );
++  asm volatile("csrr %0, sstatus"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_sstatus(uint64 x)
+ {
+-  asm volatile("csrw sstatus, %0" : : "r" (x));
++  asm volatile("csrw sstatus, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // Supervisor Interrupt Pending
+@@ -67,14 +76,17 @@ static inline uint64
+ r_sip()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, sip" : "=r" (x) );
++  asm volatile("csrr %0, sip"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_sip(uint64 x)
+ {
+-  asm volatile("csrw sip, %0" : : "r" (x));
++  asm volatile("csrw sip, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // Supervisor Interrupt Enable
+@@ -85,14 +97,17 @@ static inline uint64
+ r_sie()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, sie" : "=r" (x) );
++  asm volatile("csrr %0, sie"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_sie(uint64 x)
+ {
+-  asm volatile("csrw sie, %0" : : "r" (x));
++  asm volatile("csrw sie, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // Machine-mode Interrupt Enable
+@@ -103,30 +118,36 @@ static inline uint64
+ r_mie()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, mie" : "=r" (x) );
++  asm volatile("csrr %0, mie"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_mie(uint64 x)
+ {
+-  asm volatile("csrw mie, %0" : : "r" (x));
++  asm volatile("csrw mie, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // supervisor exception program counter, holds the
+ // instruction address to which a return from
+ // exception will go.
+-static inline void 
++static inline void
+ w_sepc(uint64 x)
+ {
+-  asm volatile("csrw sepc, %0" : : "r" (x));
++  asm volatile("csrw sepc, %0"
++               :
++               : "r"(x));
+ }
+ 
+ static inline uint64
+ r_sepc()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, sepc" : "=r" (x) );
++  asm volatile("csrr %0, sepc"
++               : "=r"(x));
+   return x;
+ }
+ 
+@@ -135,14 +156,17 @@ static inline uint64
+ r_medeleg()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, medeleg" : "=r" (x) );
++  asm volatile("csrr %0, medeleg"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_medeleg(uint64 x)
+ {
+-  asm volatile("csrw medeleg, %0" : : "r" (x));
++  asm volatile("csrw medeleg, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // Machine Interrupt Delegation
+@@ -150,50 +174,62 @@ static inline uint64
+ r_mideleg()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, mideleg" : "=r" (x) );
++  asm volatile("csrr %0, mideleg"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_mideleg(uint64 x)
+ {
+-  asm volatile("csrw mideleg, %0" : : "r" (x));
++  asm volatile("csrw mideleg, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // Supervisor Trap-Vector Base Address
+ // low two bits are mode.
+-static inline void 
++static inline void
+ w_stvec(uint64 x)
+ {
+-  asm volatile("csrw stvec, %0" : : "r" (x));
++  asm volatile("csrw stvec, %0"
++               :
++               : "r"(x));
+ }
+ 
+ static inline uint64
+ r_stvec()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, stvec" : "=r" (x) );
++  asm volatile("csrr %0, stvec"
++               : "=r"(x));
+   return x;
+ }
+ 
+ // Machine-mode interrupt vector
+-static inline void 
++static inline void
+ w_mtvec(uint64 x)
+ {
+-  asm volatile("csrw mtvec, %0" : : "r" (x));
++  asm volatile("csrw mtvec, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // Physical Memory Protection
+ static inline void
+ w_pmpcfg0(uint64 x)
+ {
+-  asm volatile("csrw pmpcfg0, %0" : : "r" (x));
++  asm volatile("csrw pmpcfg0, %0"
++               :
++               : "r"(x));
+ }
+ 
+ static inline void
+ w_pmpaddr0(uint64 x)
+ {
+-  asm volatile("csrw pmpaddr0, %0" : : "r" (x));
++  asm volatile("csrw pmpaddr0, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // use riscv's sv39 page table scheme.
+@@ -203,24 +239,29 @@ w_pmpaddr0(uint64 x)
+ 
+ // supervisor address translation and protection;
+ // holds the address of the page table.
+-static inline void 
++static inline void
+ w_satp(uint64 x)
+ {
+-  asm volatile("csrw satp, %0" : : "r" (x));
++  asm volatile("csrw satp, %0"
++               :
++               : "r"(x));
+ }
+ 
+ static inline uint64
+ r_satp()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, satp" : "=r" (x) );
++  asm volatile("csrr %0, satp"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_mscratch(uint64 x)
+ {
+-  asm volatile("csrw mscratch, %0" : : "r" (x));
++  asm volatile("csrw mscratch, %0"
++               :
++               : "r"(x));
+ }
+ 
+ // Supervisor Trap Cause
+@@ -228,7 +269,8 @@ static inline uint64
+ r_scause()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, scause" : "=r" (x) );
++  asm volatile("csrr %0, scause"
++               : "=r"(x));
+   return x;
+ }
+ 
+@@ -237,22 +279,26 @@ static inline uint64
+ r_stval()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, stval" : "=r" (x) );
++  asm volatile("csrr %0, stval"
++               : "=r"(x));
+   return x;
+ }
+ 
+ // Machine-mode Counter-Enable
+-static inline void 
++static inline void
+ w_mcounteren(uint64 x)
+ {
+-  asm volatile("csrw mcounteren, %0" : : "r" (x));
++  asm volatile("csrw mcounteren, %0"
++               :
++               : "r"(x));
+ }
+ 
+ static inline uint64
+ r_mcounteren()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, mcounteren" : "=r" (x) );
++  asm volatile("csrr %0, mcounteren"
++               : "=r"(x));
+   return x;
+ }
+ 
+@@ -261,7 +307,8 @@ static inline uint64
+ r_time()
+ {
+   uint64 x;
+-  asm volatile("csrr %0, time" : "=r" (x) );
++  asm volatile("csrr %0, time"
++               : "=r"(x));
+   return x;
+ }
+ 
+@@ -291,7 +338,8 @@ static inline uint64
+ r_sp()
+ {
+   uint64 x;
+-  asm volatile("mv %0, sp" : "=r" (x) );
++  asm volatile("mv %0, sp"
++               : "=r"(x));
+   return x;
+ }
+ 
+@@ -301,21 +349,25 @@ static inline uint64
+ r_tp()
+ {
+   uint64 x;
+-  asm volatile("mv %0, tp" : "=r" (x) );
++  asm volatile("mv %0, tp"
++               : "=r"(x));
+   return x;
+ }
+ 
+-static inline void 
++static inline void
+ w_tp(uint64 x)
+ {
+-  asm volatile("mv tp, %0" : : "r" (x));
++  asm volatile("mv tp, %0"
++               :
++               : "r"(x));
+ }
+ 
+ static inline uint64
+ r_ra()
+ {
+   uint64 x;
+-  asm volatile("mv %0, ra" : "=r" (x) );
++  asm volatile("mv %0, ra"
++               : "=r"(x));
+   return x;
+ }
+ 
+@@ -335,8 +387,8 @@ typedef uint64 *pagetable_t; // 512 PTEs
+ #define PGSIZE 4096 // bytes per page
+ #define PGSHIFT 12  // bits of offset within a page
+ 
+-#define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
+-#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
++#define PGROUNDUP(sz) (((sz) + PGSIZE - 1) & ~(PGSIZE - 1))
++#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))
+ 
+ #define PTE_V (1L << 0) // valid
+ #define PTE_R (1L << 1)
+@@ -349,12 +401,12 @@ typedef uint64 *pagetable_t; // 512 PTEs
+ 
+ #define PTE2PA(pte) (((pte) >> 10) << 12)
+ 
+-#define PTE_FLAGS(pte) ((pte) & 0x3FF)
++#define PTE_FLAGS(pte) ((pte)&0x3FF)
+ 
+ // extract the three 9-bit page table indices from a virtual address.
+-#define PXMASK          0x1FF // 9 bits
+-#define PXSHIFT(level)  (PGSHIFT+(9*(level)))
+-#define PX(level, va) ((((uint64) (va)) >> PXSHIFT(level)) & PXMASK)
++#define PXMASK 0x1FF // 9 bits
++#define PXSHIFT(level) (PGSHIFT + (9 * (level)))
++#define PX(level, va) ((((uint64)(va)) >> PXSHIFT(level)) & PXMASK)
+ 
+ // one beyond the highest possible virtual address.
+ // MAXVA is actually one bit less than the max allowed by
+diff --git a/kernel/start.c b/kernel/start.c
+index e16f18a..07365ad 100644
+--- a/kernel/start.c
++++ b/kernel/start.c
+@@ -8,17 +8,16 @@ void main();
+ void timerinit();
+ 
+ // entry.S needs one stack per CPU.
+-__attribute__ ((aligned (16))) char stack0[4096 * NCPU];
++__attribute__((aligned(16))) char stack0[4096 * NCPU];
+ 
+ // a scratch area per CPU for machine-mode timer interrupts.
+-uint64 timer_scratch[NCPU][5];
++uint64 timer_scratch[NCPU][6];
+ 
+ // assembly code in kernelvec.S for machine-mode timer interrupt.
+ extern void timervec();
+ 
+ // entry.S jumps here in machine mode on stack0.
+-void
+-start()
++void start()
+ {
+   // set M Previous Privilege mode to Supervisor, for mret.
+   unsigned long x = r_mstatus();
+@@ -59,23 +58,25 @@ start()
+ // at timervec in kernelvec.S,
+ // which turns them into software interrupts for
+ // devintr() in trap.c.
+-void
+-timerinit()
++void timerinit()
+ {
+   // each CPU has a separate source of timer interrupts.
+   int id = r_mhartid();
+ 
+   // ask the CLINT for a timer interrupt.
+   int interval = 1000000; // cycles; about 1/10th second in qemu.
+-  *(uint64*)CLINT_MTIMECMP(id) = *(uint64*)CLINT_MTIME + interval;
++  *(uint64 *)CLINT_MTIMECMP(id) = *(uint64 *)CLINT_MTIME + interval;
+ 
+   // prepare information in scratch[] for timervec.
+   // scratch[0..2] : space for timervec to save registers.
+   // scratch[3] : address of CLINT MTIMECMP register.
+   // scratch[4] : desired interval (in cycles) between timer interrupts.
++  // scratch[5] : halt flag to signal halt to timervec.
++
+   uint64 *scratch = &timer_scratch[id][0];
+   scratch[3] = CLINT_MTIMECMP(id);
+   scratch[4] = interval;
++  scratch[5] = 0; // this is my flag
+   w_mscratch((uint64)scratch);
+ 
+   // set the machine-mode trap handler.
+@@ -87,3 +88,11 @@ timerinit()
+   // enable machine-mode timer interrupts.
+   w_mie(r_mie() | MIE_MTIE);
+ }
++
++// signal halt to timervec.
++void timerhalt()
++{
++  uint64 *scratch = &timer_scratch[0][0];
++  scratch[5] = 1;
++  w_mscratch((uint64)scratch);
++}
+\ No newline at end of file
+diff --git a/kernel/syscall.c b/kernel/syscall.c
+index ed65409..b27775b 100644
+--- a/kernel/syscall.c
++++ b/kernel/syscall.c
+@@ -8,24 +8,22 @@
+ #include "defs.h"
+ 
+ // Fetch the uint64 at addr from the current process.
+-int
+-fetchaddr(uint64 addr, uint64 *ip)
++int fetchaddr(uint64 addr, uint64 *ip)
+ {
+   struct proc *p = myproc();
+-  if(addr >= p->sz || addr+sizeof(uint64) > p->sz) // both tests needed, in case of overflow
++  if (addr >= p->sz || addr + sizeof(uint64) > p->sz) // both tests needed, in case of overflow
+     return -1;
+-  if(copyin(p->pagetable, (char *)ip, addr, sizeof(*ip)) != 0)
++  if (copyin(p->pagetable, (char *)ip, addr, sizeof(*ip)) != 0)
+     return -1;
+   return 0;
+ }
+ 
+ // Fetch the nul-terminated string at addr from the current process.
+ // Returns length of string, not including nul, or -1 for error.
+-int
+-fetchstr(uint64 addr, char *buf, int max)
++int fetchstr(uint64 addr, char *buf, int max)
+ {
+   struct proc *p = myproc();
+-  if(copyinstr(p->pagetable, buf, addr, max) < 0)
++  if (copyinstr(p->pagetable, buf, addr, max) < 0)
+     return -1;
+   return strlen(buf);
+ }
+@@ -34,7 +32,8 @@ static uint64
+ argraw(int n)
+ {
+   struct proc *p = myproc();
+-  switch (n) {
++  switch (n)
++  {
+   case 0:
+     return p->trapframe->a0;
+   case 1:
+@@ -53,8 +52,7 @@ argraw(int n)
+ }
+ 
+ // Fetch the nth 32-bit system call argument.
+-void
+-argint(int n, int *ip)
++void argint(int n, int *ip)
+ {
+   *ip = argraw(n);
+ }
+@@ -62,8 +60,7 @@ argint(int n, int *ip)
+ // Retrieve an argument as a pointer.
+ // Doesn't check for legality, since
+ // copyin/copyout will do that.
+-void
+-argaddr(int n, uint64 *ip)
++void argaddr(int n, uint64 *ip)
+ {
+   *ip = argraw(n);
+ }
+@@ -71,8 +68,7 @@ argaddr(int n, uint64 *ip)
+ // Fetch the nth word-sized system call argument as a null-terminated string.
+ // Copies into buf, at most max.
+ // Returns string length if OK (including nul), -1 if error.
+-int
+-argstr(int n, char *buf, int max)
++int argstr(int n, char *buf, int max)
+ {
+   uint64 addr;
+   argaddr(n, &addr);
+@@ -101,47 +97,111 @@ extern uint64 sys_unlink(void);
+ extern uint64 sys_link(void);
+ extern uint64 sys_mkdir(void);
+ extern uint64 sys_close(void);
++extern uint64 sys_trace(void);
++extern uint64 sys_history(void);
++extern uint64 sys_shutdown(void);
+ 
+ // An array mapping syscall numbers from syscall.h
+ // to the function that handles the system call.
+ static uint64 (*syscalls[])(void) = {
+-[SYS_fork]    sys_fork,
+-[SYS_exit]    sys_exit,
+-[SYS_wait]    sys_wait,
+-[SYS_pipe]    sys_pipe,
+-[SYS_read]    sys_read,
+-[SYS_kill]    sys_kill,
+-[SYS_exec]    sys_exec,
+-[SYS_fstat]   sys_fstat,
+-[SYS_chdir]   sys_chdir,
+-[SYS_dup]     sys_dup,
+-[SYS_getpid]  sys_getpid,
+-[SYS_sbrk]    sys_sbrk,
+-[SYS_sleep]   sys_sleep,
+-[SYS_uptime]  sys_uptime,
+-[SYS_open]    sys_open,
+-[SYS_write]   sys_write,
+-[SYS_mknod]   sys_mknod,
+-[SYS_unlink]  sys_unlink,
+-[SYS_link]    sys_link,
+-[SYS_mkdir]   sys_mkdir,
+-[SYS_close]   sys_close,
++    [SYS_fork] sys_fork,
++    [SYS_exit] sys_exit,
++    [SYS_wait] sys_wait,
++    [SYS_pipe] sys_pipe,
++    [SYS_read] sys_read,
++    [SYS_kill] sys_kill,
++    [SYS_exec] sys_exec,
++    [SYS_fstat] sys_fstat,
++    [SYS_chdir] sys_chdir,
++    [SYS_dup] sys_dup,
++    [SYS_getpid] sys_getpid,
++    [SYS_sbrk] sys_sbrk,
++    [SYS_sleep] sys_sleep,
++    [SYS_uptime] sys_uptime,
++    [SYS_open] sys_open,
++    [SYS_write] sys_write,
++    [SYS_mknod] sys_mknod,
++    [SYS_unlink] sys_unlink,
++    [SYS_link] sys_link,
++    [SYS_mkdir] sys_mkdir,
++    [SYS_close] sys_close,
++    [SYS_trace] sys_trace,
++    [SYS_history] sys_history,
++    [SYS_shutdown] sys_shutdown,
++
+ };
+ 
+-void
+-syscall(void)
++int isPrint;
++
++void syscall(void)
+ {
++  uint ticksStart, ticksFinal;
+   int num;
++  isPrint = 0; // initialized assuming no match
++  char *syscall_list[] = {
++      "fork",
++      "exit",
++      "wait",
++      "pipe",
++      "read",
++      "kill",
++      "exec",
++      "fstat",
++      "chdir",
++      "dup",
++      "getpid",
++      "sbrk",
++      "sleep",
++      "uptime",
++      "open",
++      "write",
++      "mknod",
++      "unlink",
++      "link",
++      "mkdir",
++      "close",
++      "trace",
++      "history",
++      "shutdown"};
+   struct proc *p = myproc();
+ 
+   num = p->trapframe->a7;
+-  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
++
++  if (num > 0 && num < NELEM(syscalls) && syscalls[num])
++  {
++    // here i am adding
++    if (p->desired_sys_call == num)
++    {
++      isPrint = 1; // args to print
++      acquire(&p->lock);
++      int nowPid = p->pid;
++      release(&p->lock);
++      printf("pid: %d, syscall: %s, args: ", nowPid, syscall_list[num - 1]);
++    }
+     // Use num to lookup the system call function for num, call it,
+     // and store its return value in p->trapframe->a0
+-    p->trapframe->a0 = syscalls[num]();
+-  } else {
++    acquire(&tickslock);
++    ticksStart = ticks;
++    release(&tickslock);
++    p->trapframe->a0 = syscalls[num](); // here sys call
++    acquire(&tickslock);
++    ticksFinal = ticks;
++    release(&tickslock);
++    uint diff = ticksFinal - ticksStart;
++    acquire(&syscallArr[num - 1].lock);
++    syscallArr[num - 1].accum_time += diff;
++    syscallArr[num - 1].count += 1;
++    release(&syscallArr[num - 1].lock);
++
++    if (p->desired_sys_call == num)
++    {
++      printf(", return: %d\n", p->trapframe->a0);
++    }
++  }
++  else
++  {
+     printf("%d %s: unknown sys call %d\n",
+-            p->pid, p->name, num);
++           p->pid, p->name, num);
+     p->trapframe->a0 = -1;
+   }
+ }
+diff --git a/kernel/syscall.h b/kernel/syscall.h
+index bc5f356..387dee8 100644
+--- a/kernel/syscall.h
++++ b/kernel/syscall.h
+@@ -1,22 +1,25 @@
+ // System call numbers
+-#define SYS_fork    1
+-#define SYS_exit    2
+-#define SYS_wait    3
+-#define SYS_pipe    4
+-#define SYS_read    5
+-#define SYS_kill    6
+-#define SYS_exec    7
+-#define SYS_fstat   8
+-#define SYS_chdir   9
+-#define SYS_dup    10
++#define SYS_fork 1
++#define SYS_exit 2
++#define SYS_wait 3
++#define SYS_pipe 4
++#define SYS_read 5
++#define SYS_kill 6
++#define SYS_exec 7
++#define SYS_fstat 8
++#define SYS_chdir 9
++#define SYS_dup 10
+ #define SYS_getpid 11
+-#define SYS_sbrk   12
+-#define SYS_sleep  13
++#define SYS_sbrk 12
++#define SYS_sleep 13
+ #define SYS_uptime 14
+-#define SYS_open   15
+-#define SYS_write  16
+-#define SYS_mknod  17
++#define SYS_open 15
++#define SYS_write 16
++#define SYS_mknod 17
+ #define SYS_unlink 18
+-#define SYS_link   19
+-#define SYS_mkdir  20
+-#define SYS_close  21
++#define SYS_link 19
++#define SYS_mkdir 20
++#define SYS_close 21
++#define SYS_trace 22
++#define SYS_history 23
++#define SYS_shutdown 24
+diff --git a/kernel/sysfile.c b/kernel/sysfile.c
+index 16b668c..c5beb1a 100644
+--- a/kernel/sysfile.c
++++ b/kernel/sysfile.c
+@@ -18,6 +18,10 @@
+ 
+ // Fetch the nth word-sized system call argument as a file descriptor
+ // and return both the descriptor and the corresponding struct file.
++
++int globalIntVal;
++extern int isPrint;
++
+ static int
+ argfd(int n, int *pfd, struct file **pf)
+ {
+@@ -25,11 +29,12 @@ argfd(int n, int *pfd, struct file **pf)
+   struct file *f;
+ 
+   argint(n, &fd);
+-  if(fd < 0 || fd >= NOFILE || (f=myproc()->ofile[fd]) == 0)
++  globalIntVal = fd; // copying for global access for printing
++  if (fd < 0 || fd >= NOFILE || (f = myproc()->ofile[fd]) == 0)
+     return -1;
+-  if(pfd)
++  if (pfd)
+     *pfd = fd;
+-  if(pf)
++  if (pf)
+     *pf = f;
+   return 0;
+ }
+@@ -42,8 +47,10 @@ fdalloc(struct file *f)
+   int fd;
+   struct proc *p = myproc();
+ 
+-  for(fd = 0; fd < NOFILE; fd++){
+-    if(p->ofile[fd] == 0){
++  for (fd = 0; fd < NOFILE; fd++)
++  {
++    if (p->ofile[fd] == 0)
++    {
+       p->ofile[fd] = f;
+       return fd;
+     }
+@@ -57,10 +64,13 @@ sys_dup(void)
+   struct file *f;
+   int fd;
+ 
+-  if(argfd(0, 0, &f) < 0)
++  if (argfd(0, 0, &f) < 0)
+     return -1;
+-  if((fd=fdalloc(f)) < 0)
++  if ((fd = fdalloc(f)) < 0)
+     return -1;
++  if (isPrint == 1)
++    printf("(%d)", globalIntVal);
++
+   filedup(f);
+   return fd;
+ }
+@@ -74,8 +84,10 @@ sys_read(void)
+ 
+   argaddr(1, &p);
+   argint(2, &n);
+-  if(argfd(0, 0, &f) < 0)
++  if (argfd(0, 0, &f) < 0)
+     return -1;
++  if (isPrint == 1)
++    printf("(%d, %p, %d)", globalIntVal, p, n);
+   return fileread(f, p, n);
+ }
+ 
+@@ -85,12 +97,15 @@ sys_write(void)
+   struct file *f;
+   int n;
+   uint64 p;
+-  
++
+   argaddr(1, &p);
+   argint(2, &n);
+-  if(argfd(0, 0, &f) < 0)
++  if (argfd(0, 0, &f) < 0)
+     return -1;
+ 
++  if (isPrint == 1)
++    printf("(%d, %p, %d)", globalIntVal, p, n);
++
+   return filewrite(f, p, n);
+ }
+ 
+@@ -100,10 +115,14 @@ sys_close(void)
+   int fd;
+   struct file *f;
+ 
+-  if(argfd(0, &fd, &f) < 0)
++  if (argfd(0, &fd, &f) < 0)
+     return -1;
++
++  if (isPrint == 1)
++    printf("(%d)", globalIntVal);
+   myproc()->ofile[fd] = 0;
+   fileclose(f);
++
+   return 0;
+ }
+ 
+@@ -114,8 +133,11 @@ sys_fstat(void)
+   uint64 st; // user pointer to struct stat
+ 
+   argaddr(1, &st);
+-  if(argfd(0, 0, &f) < 0)
++  if (argfd(0, 0, &f) < 0)
+     return -1;
++
++  if (isPrint == 1)
++    printf("(%d, %p)", globalIntVal, st);
+   return filestat(f, st);
+ }
+ 
+@@ -126,17 +148,21 @@ sys_link(void)
+   char name[DIRSIZ], new[MAXPATH], old[MAXPATH];
+   struct inode *dp, *ip;
+ 
+-  if(argstr(0, old, MAXPATH) < 0 || argstr(1, new, MAXPATH) < 0)
++  if (argstr(0, old, MAXPATH) < 0 || argstr(1, new, MAXPATH) < 0)
+     return -1;
++  if (isPrint == 1)
++    printf("(%s, %s)", old, new);
+ 
+   begin_op();
+-  if((ip = namei(old)) == 0){
++  if ((ip = namei(old)) == 0)
++  {
+     end_op();
+     return -1;
+   }
+ 
+   ilock(ip);
+-  if(ip->type == T_DIR){
++  if (ip->type == T_DIR)
++  {
+     iunlockput(ip);
+     end_op();
+     return -1;
+@@ -146,10 +172,11 @@ sys_link(void)
+   iupdate(ip);
+   iunlock(ip);
+ 
+-  if((dp = nameiparent(new, name)) == 0)
++  if ((dp = nameiparent(new, name)) == 0)
+     goto bad;
+   ilock(dp);
+-  if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
++  if (dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0)
++  {
+     iunlockput(dp);
+     goto bad;
+   }
+@@ -176,10 +203,11 @@ isdirempty(struct inode *dp)
+   int off;
+   struct dirent de;
+ 
+-  for(off=2*sizeof(de); off<dp->size; off+=sizeof(de)){
+-    if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
++  for (off = 2 * sizeof(de); off < dp->size; off += sizeof(de))
++  {
++    if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+       panic("isdirempty: readi");
+-    if(de.inum != 0)
++    if (de.inum != 0)
+       return 0;
+   }
+   return 1;
+@@ -193,11 +221,15 @@ sys_unlink(void)
+   char name[DIRSIZ], path[MAXPATH];
+   uint off;
+ 
+-  if(argstr(0, path, MAXPATH) < 0)
++  if (argstr(0, path, MAXPATH) < 0)
+     return -1;
+ 
++  if (isPrint == 1)
++    printf("(%s)", path);
++
+   begin_op();
+-  if((dp = nameiparent(path, name)) == 0){
++  if ((dp = nameiparent(path, name)) == 0)
++  {
+     end_op();
+     return -1;
+   }
+@@ -205,24 +237,26 @@ sys_unlink(void)
+   ilock(dp);
+ 
+   // Cannot unlink "." or "..".
+-  if(namecmp(name, ".") == 0 || namecmp(name, "..") == 0)
++  if (namecmp(name, ".") == 0 || namecmp(name, "..") == 0)
+     goto bad;
+ 
+-  if((ip = dirlookup(dp, name, &off)) == 0)
++  if ((ip = dirlookup(dp, name, &off)) == 0)
+     goto bad;
+   ilock(ip);
+ 
+-  if(ip->nlink < 1)
++  if (ip->nlink < 1)
+     panic("unlink: nlink < 1");
+-  if(ip->type == T_DIR && !isdirempty(ip)){
++  if (ip->type == T_DIR && !isdirempty(ip))
++  {
+     iunlockput(ip);
+     goto bad;
+   }
+ 
+   memset(&de, 0, sizeof(de));
+-  if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
++  if (writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+     panic("unlink: writei");
+-  if(ip->type == T_DIR){
++  if (ip->type == T_DIR)
++  {
+     dp->nlink--;
+     iupdate(dp);
+   }
+@@ -242,27 +276,29 @@ bad:
+   return -1;
+ }
+ 
+-static struct inode*
++static struct inode *
+ create(char *path, short type, short major, short minor)
+ {
+   struct inode *ip, *dp;
+   char name[DIRSIZ];
+ 
+-  if((dp = nameiparent(path, name)) == 0)
++  if ((dp = nameiparent(path, name)) == 0)
+     return 0;
+ 
+   ilock(dp);
+ 
+-  if((ip = dirlookup(dp, name, 0)) != 0){
++  if ((ip = dirlookup(dp, name, 0)) != 0)
++  {
+     iunlockput(dp);
+     ilock(ip);
+-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
++    if (type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+       return ip;
+     iunlockput(ip);
+     return 0;
+   }
+ 
+-  if((ip = ialloc(dp->dev, type)) == 0){
++  if ((ip = ialloc(dp->dev, type)) == 0)
++  {
+     iunlockput(dp);
+     return 0;
+   }
+@@ -273,18 +309,20 @@ create(char *path, short type, short major, short minor)
+   ip->nlink = 1;
+   iupdate(ip);
+ 
+-  if(type == T_DIR){  // Create . and .. entries.
++  if (type == T_DIR)
++  { // Create . and .. entries.
+     // No ip->nlink++ for ".": avoid cyclic ref count.
+-    if(dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
++    if (dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
+       goto fail;
+   }
+ 
+-  if(dirlink(dp, name, ip->inum) < 0)
++  if (dirlink(dp, name, ip->inum) < 0)
+     goto fail;
+ 
+-  if(type == T_DIR){
++  if (type == T_DIR)
++  {
+     // now that success is guaranteed:
+-    dp->nlink++;  // for ".."
++    dp->nlink++; // for ".."
+     iupdate(dp);
+   }
+ 
+@@ -292,7 +330,7 @@ create(char *path, short type, short major, short minor)
+ 
+   return ip;
+ 
+- fail:
++fail:
+   // something went wrong. de-allocate ip.
+   ip->nlink = 0;
+   iupdate(ip);
+@@ -311,48 +349,62 @@ sys_open(void)
+   int n;
+ 
+   argint(1, &omode);
+-  if((n = argstr(0, path, MAXPATH)) < 0)
++  if ((n = argstr(0, path, MAXPATH)) < 0)
+     return -1;
+ 
++  if (isPrint == 1)
++    printf("(%s, %d)", path, omode);
++
+   begin_op();
+ 
+-  if(omode & O_CREATE){
++  if (omode & O_CREATE)
++  {
+     ip = create(path, T_FILE, 0, 0);
+-    if(ip == 0){
++    if (ip == 0)
++    {
+       end_op();
+       return -1;
+     }
+-  } else {
+-    if((ip = namei(path)) == 0){
++  }
++  else
++  {
++    if ((ip = namei(path)) == 0)
++    {
+       end_op();
+       return -1;
+     }
+     ilock(ip);
+-    if(ip->type == T_DIR && omode != O_RDONLY){
++    if (ip->type == T_DIR && omode != O_RDONLY)
++    {
+       iunlockput(ip);
+       end_op();
+       return -1;
+     }
+   }
+ 
+-  if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
++  if (ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV))
++  {
+     iunlockput(ip);
+     end_op();
+     return -1;
+   }
+ 
+-  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+-    if(f)
++  if ((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0)
++  {
++    if (f)
+       fileclose(f);
+     iunlockput(ip);
+     end_op();
+     return -1;
+   }
+ 
+-  if(ip->type == T_DEVICE){
++  if (ip->type == T_DEVICE)
++  {
+     f->type = FD_DEVICE;
+     f->major = ip->major;
+-  } else {
++  }
++  else
++  {
+     f->type = FD_INODE;
+     f->off = 0;
+   }
+@@ -360,7 +412,8 @@ sys_open(void)
+   f->readable = !(omode & O_WRONLY);
+   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
+ 
+-  if((omode & O_TRUNC) && ip->type == T_FILE){
++  if ((omode & O_TRUNC) && ip->type == T_FILE)
++  {
+     itrunc(ip);
+   }
+ 
+@@ -377,12 +430,17 @@ sys_mkdir(void)
+   struct inode *ip;
+ 
+   begin_op();
+-  if(argstr(0, path, MAXPATH) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0){
++  if (argstr(0, path, MAXPATH) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0)
++  {
+     end_op();
+     return -1;
+   }
++  if (isPrint == 1)
++    printf("(%s)", path);
++
+   iunlockput(ip);
+   end_op();
++
+   return 0;
+ }
+ 
+@@ -396,13 +454,19 @@ sys_mknod(void)
+   begin_op();
+   argint(1, &major);
+   argint(2, &minor);
+-  if((argstr(0, path, MAXPATH)) < 0 ||
+-     (ip = create(path, T_DEVICE, major, minor)) == 0){
++  if ((argstr(0, path, MAXPATH)) < 0 ||
++      (ip = create(path, T_DEVICE, major, minor)) == 0)
++  {
+     end_op();
+     return -1;
+   }
++
++  if (isPrint == 1)
++    printf("(%s, %d, %d)", path, major, minor);
++
+   iunlockput(ip);
+   end_op();
++
+   return 0;
+ }
+ 
+@@ -412,14 +476,19 @@ sys_chdir(void)
+   char path[MAXPATH];
+   struct inode *ip;
+   struct proc *p = myproc();
+-  
++
+   begin_op();
+-  if(argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0){
++  if (argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0)
++  {
+     end_op();
+     return -1;
+   }
++  if (isPrint == 1)
++    printf("(%s)", path);
++
+   ilock(ip);
+-  if(ip->type != T_DIR){
++  if (ip->type != T_DIR)
++  {
+     iunlockput(ip);
+     end_op();
+     return -1;
+@@ -428,6 +497,7 @@ sys_chdir(void)
+   iput(p->cwd);
+   end_op();
+   p->cwd = ip;
++
+   return 0;
+ }
+ 
+@@ -439,37 +509,45 @@ sys_exec(void)
+   uint64 uargv, uarg;
+ 
+   argaddr(1, &uargv);
+-  if(argstr(0, path, MAXPATH) < 0) {
++  if (argstr(0, path, MAXPATH) < 0)
++  {
+     return -1;
+   }
++  if (isPrint == 1)
++    printf("(%s, %p)", path, uargv);
++
+   memset(argv, 0, sizeof(argv));
+-  for(i=0;; i++){
+-    if(i >= NELEM(argv)){
++  for (i = 0;; i++)
++  {
++    if (i >= NELEM(argv))
++    {
+       goto bad;
+     }
+-    if(fetchaddr(uargv+sizeof(uint64)*i, (uint64*)&uarg) < 0){
++    if (fetchaddr(uargv + sizeof(uint64) * i, (uint64 *)&uarg) < 0)
++    {
+       goto bad;
+     }
+-    if(uarg == 0){
++    if (uarg == 0)
++    {
+       argv[i] = 0;
+       break;
+     }
+     argv[i] = kalloc();
+-    if(argv[i] == 0)
++    if (argv[i] == 0)
+       goto bad;
+-    if(fetchstr(uarg, argv[i], PGSIZE) < 0)
++    if (fetchstr(uarg, argv[i], PGSIZE) < 0)
+       goto bad;
+   }
+ 
+   int ret = exec(path, argv);
+ 
+-  for(i = 0; i < NELEM(argv) && argv[i] != 0; i++)
++  for (i = 0; i < NELEM(argv) && argv[i] != 0; i++)
+     kfree(argv[i]);
+ 
+   return ret;
+ 
+- bad:
+-  for(i = 0; i < NELEM(argv) && argv[i] != 0; i++)
++bad:
++  for (i = 0; i < NELEM(argv) && argv[i] != 0; i++)
+     kfree(argv[i]);
+   return -1;
+ }
+@@ -483,23 +561,29 @@ sys_pipe(void)
+   struct proc *p = myproc();
+ 
+   argaddr(0, &fdarray);
+-  if(pipealloc(&rf, &wf) < 0)
++  if (isPrint == 1)
++    printf("(%p)", fdarray);
++
++  if (pipealloc(&rf, &wf) < 0)
+     return -1;
+   fd0 = -1;
+-  if((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0){
+-    if(fd0 >= 0)
++  if ((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0)
++  {
++    if (fd0 >= 0)
+       p->ofile[fd0] = 0;
+     fileclose(rf);
+     fileclose(wf);
+     return -1;
+   }
+-  if(copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
+-     copyout(p->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
++  if (copyout(p->pagetable, fdarray, (char *)&fd0, sizeof(fd0)) < 0 ||
++      copyout(p->pagetable, fdarray + sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0)
++  {
+     p->ofile[fd0] = 0;
+     p->ofile[fd1] = 0;
+     fileclose(rf);
+     fileclose(wf);
+     return -1;
+   }
++
+   return 0;
+ }
+diff --git a/kernel/sysproc.c b/kernel/sysproc.c
+index 1de184e..7692f0e 100644
+--- a/kernel/sysproc.c
++++ b/kernel/sysproc.c
+@@ -6,24 +6,34 @@
+ #include "spinlock.h"
+ #include "proc.h"
+ 
++extern int isPrint;
++extern void timerhalt();
++const int N = 23;
++
+ uint64
+ sys_exit(void)
+ {
+   int n;
+   argint(0, &n);
++  if (isPrint == 1)
++    printf("(%d)", n);
+   exit(n);
+-  return 0;  // not reached
++  return 0; // not reached
+ }
+ 
+ uint64
+ sys_getpid(void)
+ {
++  if (isPrint == 1)
++    printf("()");
+   return myproc()->pid;
+ }
+ 
+ uint64
+ sys_fork(void)
+ {
++  if (isPrint == 1)
++    printf("()");
+   return fork();
+ }
+ 
+@@ -32,6 +42,8 @@ sys_wait(void)
+ {
+   uint64 p;
+   argaddr(0, &p);
++  if (isPrint == 1)
++    printf("(%p)", p);
+   return wait(p);
+ }
+ 
+@@ -42,8 +54,10 @@ sys_sbrk(void)
+   int n;
+ 
+   argint(0, &n);
++  if (isPrint == 1)
++    printf("(%d)", n);
+   addr = myproc()->sz;
+-  if(growproc(n) < 0)
++  if (growproc(n) < 0)
+     return -1;
+   return addr;
+ }
+@@ -55,10 +69,15 @@ sys_sleep(void)
+   uint ticks0;
+ 
+   argint(0, &n);
++  if (isPrint == 1)
++    printf("(%d)", n);
++
+   acquire(&tickslock);
+   ticks0 = ticks;
+-  while(ticks - ticks0 < n){
+-    if(killed(myproc())){
++  while (ticks - ticks0 < n)
++  {
++    if (killed(myproc()))
++    {
+       release(&tickslock);
+       return -1;
+     }
+@@ -74,6 +93,9 @@ sys_kill(void)
+   int pid;
+ 
+   argint(0, &pid);
++  if (isPrint == 1)
++    printf("(%d)", pid);
++
+   return kill(pid);
+ }
+ 
+@@ -82,6 +104,8 @@ sys_kill(void)
+ uint64
+ sys_uptime(void)
+ {
++  if (isPrint == 1)
++    printf("()");
+   uint xticks;
+ 
+   acquire(&tickslock);
+@@ -89,3 +113,39 @@ sys_uptime(void)
+   release(&tickslock);
+   return xticks;
+ }
++
++uint64
++sys_trace(void)
++{
++  int val;
++  argint(0, &val);
++  if (isPrint == 1)
++    printf("(%d)", val);
++  return trace(val);
++}
++
++uint64
++sys_history(void)
++{
++  int val;
++  uint64 p;
++  argint(0, &val);
++  argaddr(1, &p);
++  if (isPrint == 1)
++    printf("(%d, %p)", val, p); // trace printing
++
++  if (val <= N)
++  {
++    return history(val, p);
++  }
++  else
++  {
++    return -1;
++  }
++}
++uint64
++sys_shutdown(void)
++{
++  timerhalt();
++  return 0;
++}
+diff --git a/kernel/trap.c b/kernel/trap.c
+index 512c850..861c3b4 100644
+--- a/kernel/trap.c
++++ b/kernel/trap.c
+@@ -16,15 +16,13 @@ void kernelvec();
+ 
+ extern int devintr();
+ 
+-void
+-trapinit(void)
++void trapinit(void)
+ {
+   initlock(&tickslock, "time");
+ }
+ 
+ // set up to take exceptions and traps while in the kernel.
+-void
+-trapinithart(void)
++void trapinithart(void)
+ {
+   w_stvec((uint64)kernelvec);
+ }
+@@ -33,12 +31,11 @@ trapinithart(void)
+ // handle an interrupt, exception, or system call from user space.
+ // called from trampoline.S
+ //
+-void
+-usertrap(void)
++void usertrap(void)
+ {
+   int which_dev = 0;
+ 
+-  if((r_sstatus() & SSTATUS_SPP) != 0)
++  if ((r_sstatus() & SSTATUS_SPP) != 0)
+     panic("usertrap: not from user mode");
+ 
+   // send interrupts and exceptions to kerneltrap(),
+@@ -46,14 +43,15 @@ usertrap(void)
+   w_stvec((uint64)kernelvec);
+ 
+   struct proc *p = myproc();
+-  
++
+   // save user program counter.
+   p->trapframe->epc = r_sepc();
+-  
+-  if(r_scause() == 8){
++
++  if (r_scause() == 8)
++  {
+     // system call
+ 
+-    if(killed(p))
++    if (killed(p))
+       exit(-1);
+ 
+     // sepc points to the ecall instruction,
+@@ -65,19 +63,23 @@ usertrap(void)
+     intr_on();
+ 
+     syscall();
+-  } else if((which_dev = devintr()) != 0){
++  }
++  else if ((which_dev = devintr()) != 0)
++  {
+     // ok
+-  } else {
++  }
++  else
++  {
+     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+     setkilled(p);
+   }
+ 
+-  if(killed(p))
++  if (killed(p))
+     exit(-1);
+ 
+   // give up the CPU if this is a timer interrupt.
+-  if(which_dev == 2)
++  if (which_dev == 2)
+     yield();
+ 
+   usertrapret();
+@@ -86,8 +88,7 @@ usertrap(void)
+ //
+ // return to user space
+ //
+-void
+-usertrapret(void)
++void usertrapret(void)
+ {
+   struct proc *p = myproc();
+ 
+@@ -105,11 +106,11 @@ usertrapret(void)
+   p->trapframe->kernel_satp = r_satp();         // kernel page table
+   p->trapframe->kernel_sp = p->kstack + PGSIZE; // process's kernel stack
+   p->trapframe->kernel_trap = (uint64)usertrap;
+-  p->trapframe->kernel_hartid = r_tp();         // hartid for cpuid()
++  p->trapframe->kernel_hartid = r_tp(); // hartid for cpuid()
+ 
+   // set up the registers that trampoline.S's sret will use
+   // to get to user space.
+-  
++
+   // set S Previous Privilege mode to User.
+   unsigned long x = r_sstatus();
+   x &= ~SSTATUS_SPP; // clear SPP to 0 for user mode
+@@ -122,7 +123,7 @@ usertrapret(void)
+   // tell trampoline.S the user page table to switch to.
+   uint64 satp = MAKE_SATP(p->pagetable);
+ 
+-  // jump to userret in trampoline.S at the top of memory, which 
++  // jump to userret in trampoline.S at the top of memory, which
+   // switches to the user page table, restores user registers,
+   // and switches to user mode with sret.
+   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
+@@ -131,27 +132,27 @@ usertrapret(void)
+ 
+ // interrupts and exceptions from kernel code go here via kernelvec,
+ // on whatever the current kernel stack is.
+-void 
+-kerneltrap()
++void kerneltrap()
+ {
+   int which_dev = 0;
+   uint64 sepc = r_sepc();
+   uint64 sstatus = r_sstatus();
+   uint64 scause = r_scause();
+-  
+-  if((sstatus & SSTATUS_SPP) == 0)
++
++  if ((sstatus & SSTATUS_SPP) == 0)
+     panic("kerneltrap: not from supervisor mode");
+-  if(intr_get() != 0)
++  if (intr_get() != 0)
+     panic("kerneltrap: interrupts enabled");
+ 
+-  if((which_dev = devintr()) == 0){
++  if ((which_dev = devintr()) == 0)
++  {
+     printf("scause %p\n", scause);
+     printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
+     panic("kerneltrap");
+   }
+ 
+   // give up the CPU if this is a timer interrupt.
+-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
++  if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+     yield();
+ 
+   // the yield() may have caused some traps to occur,
+@@ -160,8 +161,7 @@ kerneltrap()
+   w_sstatus(sstatus);
+ }
+ 
+-void
+-clockintr()
++void clockintr()
+ {
+   acquire(&tickslock);
+   ticks++;
+@@ -174,48 +174,57 @@ clockintr()
+ // returns 2 if timer interrupt,
+ // 1 if other device,
+ // 0 if not recognized.
+-int
+-devintr()
++int devintr()
+ {
+   uint64 scause = r_scause();
+ 
+-  if((scause & 0x8000000000000000L) &&
+-     (scause & 0xff) == 9){
++  if ((scause & 0x8000000000000000L) &&
++      (scause & 0xff) == 9)
++  {
+     // this is a supervisor external interrupt, via PLIC.
+ 
+     // irq indicates which device interrupted.
+     int irq = plic_claim();
+ 
+-    if(irq == UART0_IRQ){
++    if (irq == UART0_IRQ)
++    {
+       uartintr();
+-    } else if(irq == VIRTIO0_IRQ){
++    }
++    else if (irq == VIRTIO0_IRQ)
++    {
+       virtio_disk_intr();
+-    } else if(irq){
++    }
++    else if (irq)
++    {
+       printf("unexpected interrupt irq=%d\n", irq);
+     }
+ 
+     // the PLIC allows each device to raise at most one
+     // interrupt at a time; tell the PLIC the device is
+     // now allowed to interrupt again.
+-    if(irq)
++    if (irq)
+       plic_complete(irq);
+ 
+     return 1;
+-  } else if(scause == 0x8000000000000001L){
++  }
++  else if (scause == 0x8000000000000001L)
++  {
+     // software interrupt from a machine-mode timer interrupt,
+     // forwarded by timervec in kernelvec.S.
+ 
+-    if(cpuid() == 0){
++    if (cpuid() == 0)
++    {
+       clockintr();
+     }
+-    
++
+     // acknowledge the software interrupt by clearing
+     // the SSIP bit in sip.
+     w_sip(r_sip() & ~2);
+ 
+     return 2;
+-  } else {
++  }
++  else
++  {
+     return 0;
+   }
+ }
+-
+diff --git a/user/exit.c b/user/exit.c
+new file mode 100644
+index 0000000..12bbdeb
+--- /dev/null
++++ b/user/exit.c
+@@ -0,0 +1,9 @@
++#include "kernel/param.h"
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main(int argc, char *argv[])
++{
++	exit(0); // to see the difference
++}
+diff --git a/user/exitTest.c b/user/exitTest.c
+new file mode 100644
+index 0000000..eb5fbb8
+--- /dev/null
++++ b/user/exitTest.c
+@@ -0,0 +1,9 @@
++#include "kernel/param.h"
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main(int argc, char *argv[])
++{
++	exit(3); // to see the difference
++}
+diff --git a/user/history.c b/user/history.c
+new file mode 100644
+index 0000000..dbfd289
+--- /dev/null
++++ b/user/history.c
+@@ -0,0 +1,44 @@
++#include "kernel/param.h"
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++struct syscall_stat
++{
++	char syscall_name[16];
++	int count;
++	int accum_time;
++};
++
++int main(int argc, char *argv[])
++{
++
++	/*if (argc < 3 || (argv[1][0] < '0' || argv[1][0] > '9'))
++	{
++		fprintf(2, "Usage: %s sys_call_num command\n", argv[0]);
++		exit(1);
++	}*/
++	struct syscall_stat ansHere;
++	if (argc < 2)
++	{
++		int start = 1;
++		while (1)
++		{
++			int response = history(start, &ansHere);
++			if (response == -1)
++				break;
++			// 1 : syscall : fork, # : 6, time : 0
++			printf("%d: syscall : %s, # : %d, time: %d\n", start, ansHere.syscall_name, ansHere.count, ansHere.accum_time);
++			start += 1;
++		}
++	}
++	else
++	{
++		int response = history(atoi(argv[1]), &ansHere);
++		if (response >= 0)
++			printf("%d: syscall : %s, #: %d, time: %d\n", atoi(argv[1]), ansHere.syscall_name, ansHere.count, ansHere.accum_time);
++		else
++			printf("There was something error\n");
++	}
++	exit(0);
++}
+diff --git a/user/shutdown.c b/user/shutdown.c
+new file mode 100644
+index 0000000..21ffa6f
+--- /dev/null
++++ b/user/shutdown.c
+@@ -0,0 +1,11 @@
++#include "kernel/param.h"
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main(int argc, char *argv[])
++{
++	printf("Exiting\n");
++	shutdown(0);
++	exit(0); // eq to return zero
++}
+\ No newline at end of file
+diff --git a/user/trace.c b/user/trace.c
+new file mode 100644
+index 0000000..31c0d87
+--- /dev/null
++++ b/user/trace.c
+@@ -0,0 +1,28 @@
++#include "kernel/param.h"
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main(int argc, char *argv[])
++{
++	int i;
++	char *nargv[MAXARG];
++
++	if (argc < 3 || (argv[1][0] < '0' || argv[1][0] > '9'))
++	{
++		fprintf(2, "Usage: %s sys_call_num command\n", argv[0]);
++		exit(1);
++	}
++
++	if (trace(atoi(argv[1])) < 0)
++	{
++		fprintf(2, "%s: trace failed\n", argv[0]);
++		exit(1);
++	}
++	for (i = 2; i < argc && i < MAXARG; i++)
++	{
++		nargv[i - 2] = argv[i];
++	}
++	exec(nargv[0], nargv);
++	exit(0);
++}
+diff --git a/user/user.h b/user/user.h
+index 4d398d5..bc4bc88 100644
+--- a/user/user.h
++++ b/user/user.h
+@@ -1,41 +1,44 @@
+ struct stat;
+-
++struct syscall_stat;
+ // system calls
+ int fork(void);
+ int exit(int) __attribute__((noreturn));
+-int wait(int*);
+-int pipe(int*);
+-int write(int, const void*, int);
+-int read(int, void*, int);
++int wait(int *);
++int pipe(int *);
++int write(int, const void *, int);
++int read(int, void *, int);
+ int close(int);
+ int kill(int);
+-int exec(const char*, char**);
+-int open(const char*, int);
+-int mknod(const char*, short, short);
+-int unlink(const char*);
+-int fstat(int fd, struct stat*);
+-int link(const char*, const char*);
+-int mkdir(const char*);
+-int chdir(const char*);
++int exec(const char *, char **);
++int open(const char *, int);
++int mknod(const char *, short, short);
++int unlink(const char *);
++int fstat(int fd, struct stat *);
++int link(const char *, const char *);
++int mkdir(const char *);
++int chdir(const char *);
+ int dup(int);
+ int getpid(void);
+-char* sbrk(int);
++char *sbrk(int);
+ int sleep(int);
+ int uptime(void);
++int trace(int);
++int shutdown(int);
++int history(int, struct syscall_stat *);
+ 
+ // ulib.c
+-int stat(const char*, struct stat*);
+-char* strcpy(char*, const char*);
+-void *memmove(void*, const void*, int);
+-char* strchr(const char*, char c);
+-int strcmp(const char*, const char*);
+-void fprintf(int, const char*, ...);
+-void printf(const char*, ...);
+-char* gets(char*, int max);
+-uint strlen(const char*);
+-void* memset(void*, int, uint);
+-void* malloc(uint);
+-void free(void*);
+-int atoi(const char*);
++int stat(const char *, struct stat *);
++char *strcpy(char *, const char *);
++void *memmove(void *, const void *, int);
++char *strchr(const char *, char c);
++int strcmp(const char *, const char *);
++void fprintf(int, const char *, ...);
++void printf(const char *, ...);
++char *gets(char *, int max);
++uint strlen(const char *);
++void *memset(void *, int, uint);
++void *malloc(uint);
++void free(void *);
++int atoi(const char *);
+ int memcmp(const void *, const void *, uint);
+ void *memcpy(void *, const void *, uint);
+diff --git a/user/usys.pl b/user/usys.pl
+index 01e426e..db2bd3c 100755
+--- a/user/usys.pl
++++ b/user/usys.pl
+@@ -36,3 +36,6 @@ entry("getpid");
+ entry("sbrk");
+ entry("sleep");
+ entry("uptime");
++entry("trace");
++entry("history");
++entry("shutdown");
